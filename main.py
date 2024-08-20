@@ -10,11 +10,9 @@ def decompress_response(response):
         content_encoding = response.headers.get('Content-Encoding', '')
         content_type = response.headers.get('Content-Type', '')
 
-        # Если ответ в формате JSON, пропускаем декомпрессию
         if 'application/json' in content_type:
             return response.content
 
-        # Проверка на Brotli сжатие
         if 'br' in content_encoding:
             return brotli.decompress(response.content)
         elif 'gzip' in content_encoding:
@@ -27,7 +25,6 @@ def decompress_response(response):
     except Exception as e:
         print(f"Error during decompression: {e}")
         print(f"Raw response content (first 100 bytes): {response.content[:100]}")
-        # Save the problematic response to a file for later analysis
         with open('problematic_response.bin', 'wb') as f:
             f.write(response.content)
         return None
@@ -37,7 +34,11 @@ def read_wallets(filepath):
         return [line.strip() for line in file.readlines()]
 
 def send_post_request(wallet, headers, url):
-    payload = {"allora_address": wallet, "evm_address": None}
+    if wallet.startswith("0x"):
+        payload = {"allora_address": None, "evm_address": wallet}
+    else:
+        payload = {"allora_address": wallet, "evm_address": None}
+    
     try:
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
@@ -140,10 +141,20 @@ def main():
             if data_id:
                 get_response = send_get_request(data_id, headers_get, url_get)
                 if get_response and get_response.get("status"):
-                    points = get_response.get("data", {}).get("allora_leaderboard_stats", {}).get("total_points", 0)
-                    rank = get_response.get("data", {}).get("allora_leaderboard_stats", {}).get("rank", "N/A")
-                    print(f"Wallet: {wallet} | ID: {data_id} | Points: {points} | Rank: {rank}")
-                    log_result(wallet, data_id, points, rank, log_filename)
+                    try:
+                        if wallet.startswith("0x"):
+                            points = get_response.get("data", {}).get("evm_leaderboard_stats", {}).get("total_points", 0)
+                            rank = get_response.get("data", {}).get("evm_leaderboard_stats", {}).get("rank", "N/A")
+                        else:
+                            points = get_response.get("data", {}).get("allora_leaderboard_stats", {}).get("total_points", 0)
+                            rank = get_response.get("data", {}).get("allora_leaderboard_stats", {}).get("rank", "N/A")
+                        
+                        print(f"Wallet: {wallet} | ID: {data_id} | Points: {points} | Rank: {rank}")
+                        log_result(wallet, data_id, points, rank, log_filename)
+                    
+                    except AttributeError:
+                        print(f"Wallet: {wallet} | No data")
+                        continue
         time.sleep(random.randint(1, 10))
 
 if __name__ == "__main__":
