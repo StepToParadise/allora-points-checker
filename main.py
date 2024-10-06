@@ -1,10 +1,13 @@
+import os
 import requests
 import json
 import time
 import random
 import brotli
 from datetime import datetime
+from glob import glob
 
+# Function to decompress response if needed
 def decompress_response(response):
     try:
         content_encoding = response.headers.get('Content-Encoding', '')
@@ -29,10 +32,12 @@ def decompress_response(response):
             f.write(response.content)
         return None
 
+# Function to read wallets from a file
 def read_wallets(filepath):
     with open(filepath, 'r') as file:
         return [line.strip() for line in file.readlines()]
 
+# Function to send POST request
 def send_post_request(wallet, headers, url):
     if wallet.startswith("0x"):
         payload = {"allora_address": None, "evm_address": wallet}
@@ -57,6 +62,7 @@ def send_post_request(wallet, headers, url):
         print(f"Other error occurred: {err} for wallet: {wallet}")
         return None
 
+# Function to send GET request
 def send_get_request(data_id, headers, url):
     try:
         response = requests.get(url.format(id=data_id), headers=headers)
@@ -84,10 +90,62 @@ def send_get_request(data_id, headers, url):
         print(f"Other error occurred: {err} for ID: {data_id}")
         return None
 
+# Function to log results to a file
 def log_result(wallet, data_id, points, rank, log_filename):
     with open(log_filename, 'a') as file:
         file.write(f"Wallet: {wallet} | ID: {data_id} | Points: {points} | Rank: {rank}\n")
 
+# Function to get the last two log files
+def get_last_two_logs(directory, pattern="result_*.log"):
+    try:
+        log_files = glob(os.path.join(directory, pattern))
+        log_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        if len(log_files) >= 2:
+            return log_files[1], log_files[0]  # Return previous and latest logs
+        else:
+            print("Not enough logs to compare")
+            return None, None
+    except Exception as e:
+        print(f"Error trying read logs: {e}")
+        return None, None
+
+# Function to read wallets data from a log file (for comparison)
+def read_wallets_data(filename):
+    wallets = []
+    with open(filename, "r") as f:
+        raw_data = f.readlines()
+    
+    for entry in raw_data:
+        entry = entry.strip()
+        if entry:
+            parts = entry.split(" | ")
+            if len(parts) >= 4:
+                try:
+                    wallet_info = {
+                        "Wallet": parts[0].split(": ")[1],
+                        "Points": float(parts[2].split(": ")[1]) if "No data" not in parts[2] else 0,
+                        "Rank": int(parts[3].split(": ")[1]) if "No data" not in parts[3] else 0,
+                    }
+                    wallets.append(wallet_info)
+                except (IndexError, ValueError) as e:
+                    print(f"Error parsing line: {entry}, code: {e}")
+            else:
+                print(f"Invalid line: {entry}")
+    return wallets
+
+# Function to calculate totals (for comparison)
+def calculate_totals(wallets):
+    total_points = 0
+    wallets_with_points = 0
+    
+    for wallet in wallets:
+        total_points += wallet["Points"]
+        if wallet["Points"] > 0:
+            wallets_with_points += 1
+    
+    return total_points, wallets_with_points
+
+# Main function
 def main():
     url_post = "https://api.upshot.xyz/v2/allora/users/connect"
     url_get = "https://api.upshot.xyz/v2/allora/points/{id}"
@@ -96,7 +154,6 @@ def main():
         "accept": "application/json, text/plain, */*",
         "accept-encoding": "gzip, deflate, br, zstd",
         "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-        "content-length": "83",
         "content-type": "application/json",
         "dnt": "1",
         "origin": "https://app.allora.network",
@@ -112,28 +169,13 @@ def main():
         "x-api-key": "UP-0d9ed54694abdac60fd23b74"
     }
 
-    headers_get = {
-        "accept": "application/json, text/plain, */*",
-        "accept-encoding": "gzip, deflate, br, zstd",
-        "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-        "dnt": "1",
-        "if-none-match": 'W/"180-wWc9Nj5jKOz4m2gZtCQbgGkX8dg"',
-        "origin": "https://app.allora.network",
-        "priority": "u=1, i",
-        "referer": "https://app.allora.network/",
-        "sec-ch-ua": '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "macOS",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "cross-site",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "x-api-key": "UP-0d9ed54694abdac60fd23b74"
-    }
+    headers_get = headers_post.copy()
+    headers_get["if-none-match"] = 'W/"180-wWc9Nj5jKOz4m2gZtCQbgGkX8dg"'
 
     wallets = read_wallets('wallets.txt')
-    log_filename = datetime.now().strftime("result_%H%M%d%m%y.log")
+    log_filename = datetime.now().strftime("result_%H%M-%d-%m-%y.log")
     
+    # Process wallets and log results
     for wallet in wallets:
         post_response = send_post_request(wallet, headers_post, url_post)
         if post_response and post_response.get("status"):
@@ -155,7 +197,76 @@ def main():
                     except AttributeError:
                         print(f"Wallet: {wallet} | No data")
                         continue
-        time.sleep(random.randint(1, 10))
+        time.sleep(random.uniform(1, 1.5))  # Slightly adjusted sleep time for realism
+
+    # After processing, perform comparison
+    previous_log, latest_log = get_last_two_logs(".")
+    
+    if previous_log and latest_log:
+        previous_wallets_data = read_wallets_data(previous_log)
+        current_wallets_data = read_wallets_data(latest_log)
+
+        previous_total_points, previous_wallets_with_points = calculate_totals(previous_wallets_data)
+        current_total_points, current_wallets_with_points = calculate_totals(current_wallets_data)
+
+        # Comparison analysis
+        comparison_results = []
+
+        previous_wallets_dict = {wallet["Wallet"]: wallet for wallet in previous_wallets_data}
+
+        for current in current_wallets_data:
+            wallet_address = current["Wallet"]
+            if wallet_address in previous_wallets_dict:
+                previous = previous_wallets_dict[wallet_address]
+                
+                # Compare Points and Rank
+                points_change = current["Points"] - previous["Points"]
+                rank_change = current["Rank"] - previous["Rank"]
+
+                comparison_results.append({
+                    "Wallet": wallet_address,
+                    "Points Change": points_change,
+                    "Rank Change": rank_change,
+                    "Current Rank": current["Rank"],
+                    "Increased Points": points_change > 0,
+                    "Increased Rank": rank_change < 0,  # Lower rank is better
+                    "Points Difference": f"+{points_change:.3f}" if points_change > 0 else f"{points_change:.3f}"
+                })
+
+        # Sort current wallets by rank to find top 5
+        sorted_by_rank = sorted(
+            [wallet for wallet in current_wallets_data if wallet["Rank"] > 0], 
+            key=lambda x: x["Rank"]
+        )[:5]
+
+        # Save comparison results to file
+        compare_log_filename = datetime.now().strftime("compare_result_%H%M-%d-%m-%y.txt")
+        with open(compare_log_filename, "w") as f:
+            # Write comparison data
+            for result in comparison_results:
+                f.write(
+                    f"Wallet: {result['Wallet']}, Points Change: {result['Points Change']}, "
+                    f"Rank Change: {result['Rank Change']}, Current Rank: {result['Current Rank']}, "
+                    f"Increased Points: {'Yes' if result['Increased Points'] else 'No'}, "
+                    f"Increased Rank: {'Yes' if result['Increased Rank'] else 'No'}, "
+                    f"Points Difference: {result['Points Difference']}\n"
+                )
+            
+            # Write summary
+            f.write("\n--- Summary ---\n")
+            f.write(f"Previous Total Points: {previous_total_points:.3f}, Wallets with Points: {previous_wallets_with_points}\n")
+            f.write(f"Current Total Points: {current_total_points:.3f}, Wallets with Points: {current_wallets_with_points}\n")
+            f.write(f"Difference in Total Points: {current_total_points - previous_total_points:.3f}\n")
+            f.write(f"Difference in Wallets with Points: {current_wallets_with_points - previous_wallets_with_points}\n")
+        
+            # Write top 5 wallets by rank
+            f.write("\n--- Top 5 Wallets by Rank ---\n")
+            for wallet in sorted_by_rank:
+                f.write(f"Wallet: {wallet['Wallet']}, Rank: {wallet['Rank']}, Points: {wallet['Points']:.3f}\n")
+
+        print(f"Compared stats and results saved to {compare_log_filename}")
+    else:
+        print("Not enough info to compare")
 
 if __name__ == "__main__":
     main()
