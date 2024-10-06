@@ -38,7 +38,7 @@ def read_wallets(filepath):
         return [line.strip() for line in file.readlines()]
 
 # Function to send POST request
-def send_post_request(wallet, headers, url, retries=3):
+def send_post_request(wallet, headers, url, retries=5):
     if wallet.startswith("0x"):
         payload = {"allora_address": None, "evm_address": wallet}
     else:
@@ -56,7 +56,8 @@ def send_post_request(wallet, headers, url, retries=3):
                 return None
         except requests.exceptions.HTTPError as http_err:
             print(f"HTTP error occurred: {http_err}")
-            return None
+            attempt += 1
+            time.sleep(1)  # Wait 1 second before retrying
         except requests.exceptions.RequestException as req_err:
             print(f"Request error occurred: {req_err}. Retrying... (attempt {attempt + 1} of {retries})")
             attempt += 1
@@ -306,7 +307,7 @@ def main():
         )[:5]
 
         # Save comparison results to file
-        compare_log_filename = datetime.now().strftime("compare_result_%H%M-%d-%m-%y.txt")
+        compare_log_filename = datetime.now().strftime("compare_result_%H%M-%d-%m-%y.csv")
         with open(compare_log_filename, "w") as f:
             # Write comparison data
             for result in comparison_results:
