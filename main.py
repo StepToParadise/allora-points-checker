@@ -145,6 +145,55 @@ def calculate_totals(wallets):
     
     return total_points, wallets_with_points
 
+def count_wallets_by_points(wallets):
+    categories = {
+        "0.000001 - 1": 0,
+        "1 - 10": 0,
+        "10 - 50": 0,
+        "50 - 100": 0,
+        "100 - 500": 0,
+    }
+    
+    for wallet in wallets:
+        points = wallet["Points"]
+        if 0.000001 <= points < 1:
+            categories["0.000001 - 1"] += 1
+        elif 1 <= points < 10:
+            categories["1 - 10"] += 1
+        elif 10 <= points < 50:
+            categories["10 - 50"] += 1
+        elif 50 <= points < 100:
+            categories["50 - 100"] += 1
+        elif 100 <= points < 500:
+            categories["100 - 500"] += 1
+    
+    return categories
+
+def count_wallets_by_rank(wallets):
+    rank_categories = {
+        "1 - 5000": 0,
+        "5001 - 15000": 0,
+        "15001 - 40000": 0,
+        "40001 - 60000": 0,
+        "60001 - 1000000": 0,
+    }
+    
+    for wallet in wallets:
+        rank = wallet["Rank"]
+        if 1 <= rank <= 5000:
+            rank_categories["1 - 5000"] += 1
+        elif 5001 <= rank <= 15001:
+            rank_categories["5001 - 15000"] += 1
+        elif 15001 <= rank <= 40000:
+            rank_categories["15001 - 40000"] += 1
+        elif 40001 <= rank <= 60000:
+            rank_categories["40001 - 60000"] += 1
+        elif 60001 <= rank <= 1000000:
+            rank_categories["60001 - 1000000"] += 1
+    
+    return rank_categories
+
+
 # Main function
 def main():
     url_post = "https://api.upshot.xyz/v2/allora/users/connect"
@@ -209,6 +258,13 @@ def main():
         previous_total_points, previous_wallets_with_points = calculate_totals(previous_wallets_data)
         current_total_points, current_wallets_with_points = calculate_totals(current_wallets_data)
 
+        previous_categories = count_wallets_by_points(previous_wallets_data)
+        current_categories = count_wallets_by_points(current_wallets_data)
+
+        previous_rank_categories = count_wallets_by_rank(previous_wallets_data)
+        current_rank_categories = count_wallets_by_rank(current_wallets_data)
+
+        
         # Comparison analysis
         comparison_results = []
 
@@ -264,9 +320,24 @@ def main():
             for wallet in sorted_by_rank:
                 f.write(f"Wallet: {wallet['Wallet']}, Rank: {wallet['Rank']}, Points: {wallet['Points']:.3f}\n")
 
-        print(f"Compared stats and results saved to {compare_log_filename}")
-    else:
-        print("Not enough info to compare")
+            f.write("\n--- Wallets by Points Categories (Previous) ---\n")
+            for category, count in previous_categories.items():
+                f.write(f"{category}: {count}\n")
+            
+            f.write("\n--- Wallets by Points Categories (Current) ---\n")
+            for category, count in current_categories.items():
+                f.write(f"{category}: {count}\n")
+        
+            # Запись категорий по рангу
+            f.write("\n--- Wallets by Rank Categories (Previous) ---\n")
+            for category, count in previous_rank_categories.items():
+                f.write(f"{category}: {count}\n")
+            
+            f.write("\n--- Wallets by Rank Categories (Current) ---\n")
+            for category, count in current_rank_categories.items():
+                f.write(f"{category}: {count}\n")
+        
+            print(f"Compared stats and results with saved to {compare_log_filename}")
 
 if __name__ == "__main__":
     main()
