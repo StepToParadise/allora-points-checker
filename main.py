@@ -38,29 +38,39 @@ def read_wallets(filepath):
         return [line.strip() for line in file.readlines()]
 
 # Function to send POST request
-def send_post_request(wallet, headers, url):
+def send_post_request(wallet, headers, url, retries=3):
     if wallet.startswith("0x"):
         payload = {"allora_address": None, "evm_address": wallet}
     else:
         payload = {"allora_address": wallet, "evm_address": None}
-    
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        if response.text:
-            return response.json()
-        else:
-            print(f"Empty response received for wallet: {wallet}")
+
+    attempt = 0
+    while attempt < retries:
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            if response.text:
+                return response.json()
+            else:
+                print(f"Empty response received for wallet: {wallet}")
+                return None
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
             return None
-    except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-        return None
-    except json.JSONDecodeError as json_err:
-        print(f"JSON decode error: {json_err} for wallet: {wallet} with response: {response.text}")
-        return None
-    except Exception as err:
-        print(f"Other error occurred: {err} for wallet: {wallet}")
-        return None
+        except requests.exceptions.RequestException as req_err:
+            print(f"Request error occurred: {req_err}. Retrying... (attempt {attempt + 1} of {retries})")
+            attempt += 1
+            time.sleep(1)  # Wait 1 second before retrying
+        except json.JSONDecodeError as json_err:
+            print(f"JSON decode error: {json_err} for wallet: {wallet} with response: {response.text}")
+            return None
+        except Exception as err:
+            print(f"Other error occurred: {err} for wallet: {wallet}. Retrying... (attempt {attempt + 1} of {retries})")
+            attempt += 1
+            time.sleep(1)  # Wait 1 second before retrying
+
+    print(f"Failed to process wallet {wallet} after {retries} attempts")
+    return None
 
 # Function to send GET request
 def send_get_request(data_id, headers, url):
