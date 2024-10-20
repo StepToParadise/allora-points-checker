@@ -233,7 +233,7 @@ def main():
     headers_get["if-none-match"] = 'W/"180-wWc9Nj5jKOz4m2gZtCQbgGkX8dg"'
 
     wallets = read_wallets('wallets.txt')
-    log_filename = datetime.now().strftime("result_%H%M-%d-%m-%y.log")
+    log_filename = datetime.now().strftime("result_%d-%m-%y-%Hx%M.log")
     
     # Process wallets and log results
     for wallet in wallets:
@@ -307,7 +307,7 @@ def main():
         )[:5]
 
         # Save comparison results to file
-        compare_log_filename = datetime.now().strftime("compare_result_%H%M-%d-%m-%y.csv")
+        compare_log_filename = datetime.now().strftime("compare_result_%d-%m-%y-%Hx%M.csv")
         with open(compare_log_filename, "w") as f:
             # Write comparison data
             for result in comparison_results:
