@@ -27,6 +27,7 @@ def decompress_response(response):
         else:
             print("No compression detected")
             return response.content
+        
     except Exception as e:
         print(f"Error during decompression: {e}")
         print(f"Raw response content (first 100 bytes): {response.content[:100]}")
@@ -61,7 +62,6 @@ def send_post_request(wallet, headers, url, proxy_cycle, retries=10):
             return response.json() if response.text else None
         except requests.exceptions.RequestException:
             attempt += 1
-            time.sleep(1)
 
     print(f"Failed to process wallet {wallet} after {retries} attempts")    
     return None
@@ -93,13 +93,10 @@ def send_get_request(data_id, headers, url, proxy_cycle, retries=10):
                         
         except requests.exceptions.RequestException:
             attempt += 1
-            time.sleep(1)
         except json.JSONDecodeError as json_err:
             attempt += 1
-            time.sleep(1)
         except Exception as err:
             attempt += 1
-            time.sleep(1)
 
     return None
 
@@ -116,6 +113,7 @@ def get_last_two_logs(directory, pattern="result_*.log"):
         else:
             print("Not enough logs to compare")
             return None, None
+        
     except Exception as e:
         print(f"Error trying read logs: {e}")
         return None, None
@@ -137,6 +135,7 @@ def read_wallets_data(filename):
                         "Rank": int(parts[3].split(": ")[1]) if "No data" not in parts[3] else 0,
                     }
                     wallets.append(wallet_info)
+
                 except (IndexError, ValueError) as e:
                     print(f"Error parsing line: {entry}, code: {e}")
             else:
@@ -255,8 +254,8 @@ def main():
         futures = [executor.submit(process_wallet, wallet, headers_post, headers_get, url_post, url_get, log_filename, proxy_cycle) for wallet in wallets]
         for future in as_completed(futures):
             future.result()
-    previous_log, latest_log = get_last_two_logs(".")
     
+    previous_log, latest_log = get_last_two_logs(".")
     if previous_log and latest_log:
         previous_wallets_data = read_wallets_data(previous_log)
         current_wallets_data = read_wallets_data(latest_log)
