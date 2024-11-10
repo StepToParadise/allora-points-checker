@@ -201,24 +201,27 @@ def count_wallets_by_points(wallets):
 def count_wallets_by_rank(wallets):
     rank_categories = {
         "1 - 5000": 0,
-        "5001 - 15000": 0,
-        "15001 - 40000": 0,
-        "40001 - 60000": 0,
-        "60001 - 1000000": 0,
+        "5001 - 15 000": 0,
+        "15 001 - 30 000": 0,
+        "30 001 - 50 000": 0,
+        "50 001 - 100 000": 0,
+        "100 001 - 1 000 000": 0,
     }
     
     for wallet in wallets:
         rank = wallet["Rank"]
         if 1 <= rank <= 5000:
             rank_categories["1 - 5000"] += 1
-        elif 5001 <= rank <= 15001:
-            rank_categories["5001 - 15000"] += 1
-        elif 15001 <= rank <= 40000:
-            rank_categories["15001 - 40000"] += 1
-        elif 40001 <= rank <= 60000:
-            rank_categories["40001 - 60000"] += 1
-        elif 60001 <= rank <= 1000000:
-            rank_categories["60001 - 1000000"] += 1
+        elif 5001 <= rank <= 15000:
+            rank_categories["5001 - 15 000"] += 1
+        elif 15001 <= rank <= 30000:
+            rank_categories["15 001 - 30 000"] += 1
+        elif 30001 <= rank <= 50000:
+            rank_categories["30 001 - 50 000"] += 1
+        elif 50001 <= rank <= 100000:
+            rank_categories["50 001 - 100 000"] += 1
+        elif 100001 <= rank <= 1000000:
+            rank_categories["100 001 - 1 000 000"] += 1
     
     return rank_categories
 
